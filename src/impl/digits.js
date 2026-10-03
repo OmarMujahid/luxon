@@ -1,3 +1,5 @@
+import { hasOwnProperty } from "./util.js";
+
 const numberingSystems = {
   arab: "[\u0660-\u0669]",
   arabext: "[\u06F0-\u06F9]",
@@ -76,17 +78,29 @@ export function resetDigitRegexCache() {
   digitRegexCache.clear();
 }
 
-export function digitRegex({ numberingSystem }, append = "") {
-  const ns = numberingSystem || "latn";
+export function digitRegex(loc, append = "") {
+  let ns = loc.numberingSystem || "latn";
+  let alsoLatin = false;
+  // Without an explicit numbering system, toFormat() writes the locale's default
+  // one (e.g. Arabic-Indic digits for ar-SA), so accept those as well as ASCII.
+  if (!loc.numberingSystem && loc.resolvedNumberingSystem) {
+    const resolved = loc.resolvedNumberingSystem();
+    if (resolved !== "latn" && hasOwnProperty(numberingSystems, resolved)) {
+      ns = resolved;
+      alsoLatin = true;
+    }
+  }
+  const key = alsoLatin ? `${ns}+latn` : ns;
 
-  let appendCache = digitRegexCache.get(ns);
+  let appendCache = digitRegexCache.get(key);
   if (appendCache === undefined) {
     appendCache = new Map();
-    digitRegexCache.set(ns, appendCache);
+    digitRegexCache.set(key, appendCache);
   }
   let regex = appendCache.get(append);
   if (regex === undefined) {
-    regex = new RegExp(`${numberingSystems[ns]}${append}`);
+    const digit = alsoLatin ? `(?:${numberingSystems[ns]}|\\d)` : numberingSystems[ns];
+    regex = new RegExp(`${digit}${append}`);
     appendCache.set(append, regex);
   }
 
