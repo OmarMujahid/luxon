@@ -72,6 +72,31 @@ export function parseDigits(str) {
   }
 }
 
+/**
+ * Converts any supported non-ASCII digits in `str` to ASCII, leaving every other
+ * character (signs, leading zeros) as is. For deserializers that hand matched
+ * text to parseInt/parseFloat instead of parseDigits.
+ */
+export function toAsciiDigits(str) {
+  let out = "";
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    const hanidec = hanidecChars.indexOf(str[i]);
+    let digit = hanidec === -1 ? null : hanidec;
+    if (digit === null) {
+      for (const key in numberingSystemsUTF16) {
+        const [min, max] = numberingSystemsUTF16[key];
+        if (code >= min && code <= max) {
+          digit = code - min;
+          break;
+        }
+      }
+    }
+    out += digit === null ? str[i] : digit;
+  }
+  return out;
+}
+
 // cache of {numberingSystem: {append: regex}}
 const digitRegexCache = new Map();
 export function resetDigitRegexCache() {
@@ -99,8 +124,10 @@ export function digitRegex(loc, append = "") {
   }
   let regex = appendCache.get(append);
   if (regex === undefined) {
-    const digit = alsoLatin ? `(?:${numberingSystems[ns]}|\\d)` : numberingSystems[ns];
-    regex = new RegExp(`${digit}${append}`);
+    // Quantify each alternative separately so one token can't mix digit systems.
+    regex = alsoLatin
+      ? new RegExp(`(?:${numberingSystems[ns]}${append}|\\d${append})`)
+      : new RegExp(`${numberingSystems[ns]}${append}`);
     appendCache.set(append, regex);
   }
 

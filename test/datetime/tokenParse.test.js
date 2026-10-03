@@ -938,6 +938,29 @@ test("DateTime.fromFormat() still parses ASCII digits for a locale with another 
   });
 });
 
+test("DateTime.fromFormat() rejects a token that mixes digit systems", () => {
+  expect(DateTime.fromFormat("202٦-10-03", "yyyy-MM-dd", { locale: "ar-SA" }).isValid).toBe(false);
+});
+
+test("DateTime.fromFormat() reads offsets written in the locale's digits", () => {
+  const parsed = DateTime.fromFormat("2026-10-03 14:05 +٠٣:٣٠", "yyyy-MM-dd HH:mm ZZ", {
+    locale: "ar-SA",
+    setZone: true,
+  });
+  expect(parsed.offset).toBe(210);
+});
+
+test("DateTime.fromFormat() reads fractional seconds written in the locale's digits", () => {
+  const dt = DateTime.fromISO("2026-10-03T14:05:09.023").setLocale("ar-SA");
+  for (const fmt of ["HH:mm:ss.u", "HH:mm:ss.uu"]) {
+    const parsed = DateTime.fromFormat(dt.toFormat(fmt), fmt, { locale: "ar-SA" });
+    expect(parsed.toFormat(fmt, { locale: "ar-SA" })).toBe(dt.toFormat(fmt));
+  }
+  expect(DateTime.fromFormat("14:05:09.٠٢٣", "HH:mm:ss.u", { locale: "ar-SA" }).millisecond).toBe(
+    23
+  );
+});
+
 test("DateTime.fromFormat() with an explicit numberingSystem only accepts its digits", () => {
   const opts = { locale: "ar-SA", numberingSystem: "arab" };
   expect(DateTime.fromFormat("٢٠٢٦-١٠-٠٣", "yyyy-MM-dd", opts).toISODate()).toBe("2026-10-03");
